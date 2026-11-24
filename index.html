@@ -4,28 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>策略信号</title>
-<meta name="description" content="每个交易日 14:35 和收盘后，提示所选策略今天该买、该卖还是不动">
+<meta name="description" content="每个交易日 14:30 和收盘后，提示所选策略今天该买、该卖还是不动">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M7 21l6-6 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/app.css?v=1">
+<link rel="stylesheet" href="assets/app.css?v=3">
 </head>
 <body>
 <header class="top">
   <div class="bar">
-    <div class="brand">策略信号</div>
-    <div class="status" id="status">加载中…</div>
-    <button class="pick-btn" id="pickBtn" type="button" aria-haspopup="dialog">选择策略</button>
+    <a class="brand" href="#/"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 21l6-6 4 4 8-9" /></svg></span>策略信号</a>
+    <span class="status" id="status"></span>
+    <button class="ghost" id="pickBtn" type="button" aria-haspopup="dialog">选择策略</button>
   </div>
 </header>
-<main class="wrap">
-  <div id="banner"></div>
-  <section class="intro" id="intro"></section>
-  <div id="cards" class="cards"></div>
-  <p class="empty" id="empty" hidden>还没有选择策略。点右上角「选择策略」勾选要看的策略。</p>
-</main>
+<main class="wrap" id="view"><p class="loading">加载中…</p></main>
 <footer class="foot"><div class="wrap-f">
-  每个交易日北京时间 14:35 出「盘中提示」（按 14:35 价格估算 14:50 的操作），15:40 用收盘价复核。
-  提示按策略的模拟账户给出（从约 300 个交易日前开始按规则运行到今天），不是你的真实账户。
-  个别选股可能与聚宽回测有出入，以聚宽模拟交易为准；仅供参考，不构成投资建议。
+  每个交易日北京时间 14:30 出「盘中提示」（按当时价格估算 14:50 的操作），15:35 用收盘价复核。
+  提示来自按策略规则运行的模拟账户，不是你的真实账户；个别选股可能与聚宽回测有出入，以聚宽模拟交易为准。仅供参考，不构成投资建议。
 </div></footer>
 <dialog id="picker">
   <form method="dialog">
@@ -35,6 +29,6 @@
   </form>
 </dialog>
 <div id="tip" class="tip" hidden></div>
-<script src="assets/app.js?v=1"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>

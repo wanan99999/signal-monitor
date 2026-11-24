@@ -89,7 +89,7 @@ def build_output(strat, b, extra, m, q, today, mode, prev_json):
         if ts:
             hist.append(dict(date=day.strftime("%Y-%m-%d"), trades=ts))
     nr = m.next_rebal(d, extra.get("every", 5))
-    out = dict(id=strat["id"], title=strat["title"], link=strat.get("link"), rule=extra.get("rule", ""),
+    out = dict(id=strat["id"], title=strat["title"], cat=strat.get("cat"), tagline=strat.get("tagline", ""), link=strat.get("link"), rule=extra.get("rule", ""),
                action=action, trades=today_tr, minor=minor, holdings=hold, cash=round(1 - sum(w.values()), 4),
                conditions=extra.get("conditions", []),
                rebalance_today=bool(m.n(d) % extra.get("every", 5) == 0),
@@ -202,7 +202,7 @@ def main():
     out = dict(date=today, mode=mode, updated=D.bj_now().strftime("%Y-%m-%d %H:%M"),
                quote_time=pd.to_datetime(q["ts"].astype(str).max(), format="%Y%m%d%H%M%S").strftime("%H:%M"),
                next_trade_day=cal[cal > pd.Timestamp(today)][0].strftime("%Y-%m-%d"),
-               warnings=warn, strategies=res)
+               warnings=warn, cats=CONF.get("cats", []), strategies=res)
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, "signals.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))

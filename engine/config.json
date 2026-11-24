@@ -1,10 +1,17 @@
 {
+  "cats": [
+    {"id": "dividend", "title": "股息率策略", "desc": "主要用于银行、煤炭、石油石化等高股息股。"},
+    {"id": "trend", "title": "趋势策略", "desc": "根据行情变动，分为上行期、下行期、震荡期策略。"}
+  ],
   "strategies": [
-    {"id": "combo", "title": "全行情切换组合（三合一 V1.4）", "func": "combo", "enabled": true,
+    {"id": "combo", "cat": "trend", "title": "全行情切换组合（三合一 V1.4）", "func": "combo", "enabled": true,
+     "tagline": "平时持大盘稳健股；中小盘涨起来换成小盘反转股；大盘也走强时一半个股、一半行业 ETF。",
      "link": "https://wanan99999.github.io/quant-strategies/s/full-cycle-switch.html"},
-    {"id": "steady", "title": "大盘股熊市震荡市稳健策略", "func": "steady", "enabled": true,
+    {"id": "steady", "cat": "trend", "title": "大盘股熊市震荡市稳健策略", "func": "steady", "enabled": true,
+     "tagline": "大盘 800 家盈利公司里，持离一年高点近、走势最稳的 30 只；波动或回撤大时自动降仓。",
      "link": "https://wanan99999.github.io/quant-strategies/s/stock-steady-trend.html"},
-    {"id": "bank", "title": "银行股顺势策略", "func": "bank", "enabled": true,
+    {"id": "bank", "cat": "dividend", "title": "银行股顺势策略", "func": "bank", "enabled": true,
+     "tagline": "银行股里强者恒强：持有离一年高点最近的 4 只，掉出前 6 名才卖，不追近期已大涨的。",
      "link": "https://wanan99999.github.io/quant-strategies/s/bank-momentum.html"}
   ]
 }

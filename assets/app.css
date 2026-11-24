@@ -1,106 +1,159 @@
-/* 策略信号 —— 与量化策略库同一套 token；红涨绿跌（A 股习惯）：买入用红、卖出用绿 */
+/* 策略信号 —— 与量化策略库同一套 token；A 股习惯红涨绿跌：买入用红、卖出用绿 */
 :root {
-  --bg: #f6f7f9; --surface: #ffffff; --ink: #14171c; --ink-2: #4d535c; --ink-3: #7b828c;
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #fafbfc; --ink: #14171c; --ink-2: #4d535c; --ink-3: #7b828c;
   --rule: #e3e6ea; --chip: #edf1f6; --accent: #2a78d6; --accent-bg: rgba(42,120,214,.10); --on-accent: #fff;
-  --buy: #d4380d; --buy-bg: rgba(212,56,13,.10); --sell: #1a8754; --sell-bg: rgba(26,135,84,.10);
-  --warn: #b26a00; --warn-bg: rgba(214,140,0,.12);
+  --buy: #d4380d; --buy-bg: rgba(212,56,13,.09); --sell: #1a8754; --sell-bg: rgba(26,135,84,.10);
+  --warn: #9a5b00; --warn-bg: rgba(214,140,0,.12);
+  --c-dividend: #1f8a5b; --c-trend: #2a78d6;
+  --shadow: 0 1px 2px rgba(20,23,28,.04), 0 4px 16px rgba(20,23,28,.04);
   --f-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
   --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #121417; --surface: #1a1d21; --ink: #eef0f2; --ink-2: #b9bec6; --ink-3: #8a919b;
+  --bg: #121417; --surface: #1a1d21; --surface-2: #1e2226; --ink: #eef0f2; --ink-2: #b9bec6; --ink-3: #8a919b;
   --rule: #2c3036; --chip: #23282e; --accent: #4b93ea; --accent-bg: rgba(75,147,234,.14);
   --buy: #f0663a; --buy-bg: rgba(240,102,58,.14); --sell: #3cb983; --sell-bg: rgba(60,185,131,.14);
-  --warn: #e0a43a; --warn-bg: rgba(224,164,58,.14); color-scheme: dark } }
+  --warn: #e0a43a; --warn-bg: rgba(224,164,58,.14); --c-dividend: #3cb983; --c-trend: #4b93ea;
+  --shadow: none; color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #121417; --surface: #1a1d21; --ink: #eef0f2; --ink-2: #b9bec6; --ink-3: #8a919b;
+  --bg: #121417; --surface: #1a1d21; --surface-2: #1e2226; --ink: #eef0f2; --ink-2: #b9bec6; --ink-3: #8a919b;
   --rule: #2c3036; --chip: #23282e; --accent: #4b93ea; --accent-bg: rgba(75,147,234,.14);
   --buy: #f0663a; --buy-bg: rgba(240,102,58,.14); --sell: #3cb983; --sell-bg: rgba(60,185,131,.14);
-  --warn: #e0a43a; --warn-bg: rgba(224,164,58,.14); color-scheme: dark }
+  --warn: #e0a43a; --warn-bg: rgba(224,164,58,.14); --c-dividend: #3cb983; --c-trend: #4b93ea;
+  --shadow: none; color-scheme: dark }
 * { box-sizing: border-box }
-body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.65 }
+html { scroll-padding-top: 64px }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.65; -webkit-text-size-adjust: 100% }
 a { color: var(--accent); text-decoration: none } a:hover { text-decoration: underline }
-button { font: inherit; cursor: pointer }
-.num { font-family: var(--f-num); font-variant-numeric: tabular-nums }
+button { font: inherit; cursor: pointer; color: inherit }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -.01em }
 
-.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); padding-top: env(safe-area-inset-top, 0px) }
-.bar { max-width: 960px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px }
-.brand { font-family: var(--f-display); font-weight: 700; font-size: 18px; white-space: nowrap }
-.status { flex: 1; min-width: 0; color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.pick-btn { border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 5px 12px; font-size: 13px; white-space: nowrap }
+/* 顶栏 */
+.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--rule); padding-top: env(safe-area-inset-top, 0px) }
+.bar { max-width: 1080px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 14px }
+.brand { display: flex; align-items: center; gap: 8px; font-family: var(--f-display); font-weight: 700; font-size: 18px; color: var(--ink); white-space: nowrap }
+.brand:hover { text-decoration: none }
+.logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center }
+.logo svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round }
+.status { flex: 1; min-width: 0; color: var(--ink-3); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ghost { margin-left: auto; border: 1px solid var(--rule); background: var(--surface); border-radius: 8px; padding: 5px 12px; font-size: 13px; white-space: nowrap }
+.ghost:hover { border-color: var(--accent); color: var(--accent) }
 
-.wrap { max-width: 960px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; min-width: 0; grid-template-columns: minmax(0, 1fr) }
-.foot { border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 12.5px } .wrap-f { max-width: 960px; margin: 0 auto; padding: 18px 16px 28px }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 16px 56px; display: grid; gap: 32px; min-width: 0; grid-template-columns: minmax(0, 1fr) }
+.foot { border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 12.5px } .wrap-f { max-width: 1080px; margin: 0 auto; padding: 18px 16px 28px }
+.loading, .empty { color: var(--ink-3); text-align: center; padding: 48px 0 }
 .banner { border-radius: 10px; padding: 10px 14px; font-size: 14px; background: var(--warn-bg); color: var(--warn) }
-.intro { color: var(--ink-2); font-size: 14px }
-.intro b { color: var(--ink) }
-.empty { color: var(--ink-3); text-align: center; padding: 40px 0 }
+.banners { display: grid; gap: 8px }
 
-/* 总览条：一眼看到每个策略今天的动作 */
-.overview { display: flex; gap: 8px; flex-wrap: wrap }
-.ov { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 6px 10px; font-size: 13.5px; color: var(--ink) }
-.ov:hover { text-decoration: none; border-color: var(--accent) }
+/* 首页头部 */
+.hero { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) }
+.hero-t { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap }
+.hero h1 { margin: 0; font-family: var(--f-display); font-size: clamp(26px, 4vw, 34px); line-height: 1.2; letter-spacing: .01em }
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 11px; font-size: 13px; background: var(--chip); color: var(--ink-2) }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3) }
+.pill.live .dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg) }
+.hero p { margin: 0; color: var(--ink-2); max-width: 46em }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px }
+.stat { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 12px 16px; box-shadow: var(--shadow) }
+.stat .k { font-size: 12.5px; color: var(--ink-3) }
+.stat .v { font-size: 26px; font-weight: 600; line-height: 1.3 }
+.stat .v small { font-size: 13px; font-weight: 400; color: var(--ink-3); margin-left: 4px }
+.v.buy { color: var(--buy) } .v.sell { color: var(--sell) }
 
-.cards { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) }
-.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 16px; display: grid; gap: 14px; min-width: 0; scroll-margin-top: 64px }
-.card-h { display: flex; align-items: flex-start; gap: 12px }
-.card-h h2 { margin: 0; font-size: 17px; line-height: 1.4; flex: 1; min-width: 0 }
-.card-h .sub { display: block; font-size: 12.5px; color: var(--ink-3); font-weight: 400; margin-top: 2px }
-.badge { flex: none; border-radius: 8px; padding: 3px 12px; font-weight: 700; font-size: 15px; letter-spacing: .05em }
-.b-买入 { background: var(--buy-bg); color: var(--buy) } .b-卖出 { background: var(--sell-bg); color: var(--sell) }
-.b-调仓 { background: var(--accent-bg); color: var(--accent) } .b-不动, .b-空仓 { background: var(--chip); color: var(--ink-2) }
-.headline { font-size: 14.5px; color: var(--ink) }
-.headline .muted { color: var(--ink-3) }
-.alloc { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; background: var(--chip) }
-.alloc i { display: block; height: 100% }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2) }
-.legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; background: var(--c); vertical-align: 0 }
+/* 分类 + 卡片 */
+.sec { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) }
+.sec-h { display: flex; align-items: baseline; gap: 10px }
+.sec-h h2 { margin: 0; font-family: var(--f-display); font-size: 21px; display: flex; align-items: center; gap: 10px }
+.sec-h h2::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c) }
+.sec-h .n { color: var(--ink-3); font-size: 14px }
+.sec > p { margin: -8px 0 0; color: var(--ink-2); font-size: 14px }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px }
+.card { position: relative; background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 9px;
+  color: var(--ink); box-shadow: var(--shadow); transition: border-color .15s, transform .15s, box-shadow .15s }
+.card:hover { border-color: var(--accent); transform: translateY(-1px) }
+.card .cover { position: absolute; inset: 0; border-radius: 14px; z-index: 1 }
+.card .cover:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.card-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.tag { display: inline-block; border-radius: 6px; padding: 1px 9px; font-size: 12.5px; background: var(--chip); color: var(--ink-2) }
+.tag.t-买入, .tag.t-调仓 { background: var(--accent-bg); color: var(--accent) }
+.tag.t-卖出 { background: var(--sell-bg); color: var(--sell) }
+.card h3 { margin: 0; font-size: 17px; line-height: 1.4 }
+.card p { margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; flex: 1 }
+.card-sig { display: flex; align-items: center; gap: 8px; border-top: 1px dashed var(--rule); padding-top: 12px; margin-top: 4px }
+.card-sig .hold { margin-left: auto; color: var(--ink-3); font-size: 13px; white-space: nowrap }
+.card-meta { color: var(--ink-3); font-size: 12.5px }
+/* 买入 / 卖出 信号按钮 */
+.sig { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 4px; border-radius: 8px; padding: 4px 11px; font-size: 14px; font-weight: 600;
+  border: 1px solid var(--rule); background: var(--surface-2); color: var(--ink-3); white-space: nowrap }
+.sig b { font-family: var(--f-num); font-weight: 600 }
+.sig:hover { text-decoration: none; border-color: var(--ink-3) }
+.sig.buy.on { background: var(--buy-bg); color: var(--buy); border-color: transparent }
+.sig.sell.on { background: var(--sell-bg); color: var(--sell); border-color: transparent }
 
-h3 { margin: 0 0 6px; font-size: 13.5px; color: var(--ink-2); font-weight: 600 }
-.tbl { width: 100%; border-collapse: collapse; font-size: 14px }
-.tbl th { text-align: left; font-weight: 500; color: var(--ink-3); font-size: 12px; padding: 4px 6px; border-bottom: 1px solid var(--rule) }
-.tbl td { padding: 7px 6px; border-bottom: 1px solid var(--rule); vertical-align: top }
-.tbl tr:last-child td { border-bottom: 0 }
-.tbl .r { text-align: right; white-space: nowrap }
-.tbl .code { color: var(--ink-3); font-size: 12px; margin-left: 4px }
-.why { display: block; color: var(--ink-3); font-size: 12px }
-.side { font-weight: 700; white-space: nowrap }
-.s-买入, .s-加仓 { color: var(--buy) } .s-卖出, .s-减仓 { color: var(--sell) }
-.up { color: var(--buy) } .dn { color: var(--sell) }
-.tblwrap { overflow-x: auto; min-width: 0 }
-
-.conds { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13.5px }
-.conds li { display: flex; gap: 8px; align-items: baseline; color: var(--ink-2) }
-.conds .ok, .conds .no { flex: none; width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; transform: translateY(2px) }
-.conds .ok { background: var(--accent-bg); color: var(--accent) } .conds .no { background: var(--chip); color: var(--ink-3) }
-
-.cmp { font-size: 13px; border-radius: 8px; padding: 8px 10px; background: var(--chip); color: var(--ink-2) }
+/* 详情页 */
+.back { font-size: 14px; color: var(--ink-2) } .back:hover { color: var(--accent); text-decoration: none }
+.d-head { display: grid; gap: 10px }
+.d-head h1 { margin: 0; font-family: var(--f-display); font-size: clamp(24px, 3.6vw, 30px); line-height: 1.3 }
+.d-head p { margin: 0; color: var(--ink-2) }
+.d-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-3) }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); display: grid; gap: 12px; min-width: 0 }
+.panel h2 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px }
+.panel h2 .hint { font-weight: 400; font-size: 12.5px; color: var(--ink-3) }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap }
+.tabs .sig { cursor: pointer; font-size: 15px; padding: 6px 14px }
+.tabs .sig.hold.on { background: var(--accent-bg); color: var(--accent); border-color: transparent }
+.tabs .sig[aria-selected="true"] { box-shadow: inset 0 0 0 2px currentColor }
+.note { font-size: 13px; color: var(--ink-3) }
+.cmp { font-size: 13px; border-radius: 8px; padding: 8px 12px; background: var(--chip); color: var(--ink-2) }
 .cmp.diff { background: var(--warn-bg); color: var(--warn) }
 
-details { border-top: 1px solid var(--rule); padding-top: 10px }
-summary { cursor: pointer; color: var(--ink-2); font-size: 13.5px }
-.hist { display: grid; gap: 8px; margin-top: 10px; font-size: 13px }
-.hist .d { color: var(--ink-3); font-family: var(--f-num); font-size: 12px }
-.chart { position: relative; margin-top: 10px }
-.chart svg { display: block; width: 100%; height: 160px; overflow: visible }
-.chart .meta { font-size: 12.5px; color: var(--ink-3); margin-top: 4px }
-.rule { font-size: 13px; color: var(--ink-2) }
+.list { display: grid; grid-template-columns: minmax(0, 1fr) }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 11px 2px; border-bottom: 1px solid var(--rule) }
+.row:last-child { border-bottom: 0 }
+.row .nm { font-weight: 600; font-size: 15px }
+.row .cd { color: var(--ink-3); font-size: 12.5px; margin-left: 6px; font-weight: 400 }
+.row .sub { grid-column: 1 / -1; color: var(--ink-3); font-size: 12.5px }
+.row .rt { text-align: right; white-space: nowrap; font-size: 14px }
+.row .rt small { display: block; color: var(--ink-3); font-size: 12px }
+.side { display: inline-block; border-radius: 5px; padding: 0 7px; font-size: 12.5px; font-weight: 600; margin-right: 8px; vertical-align: 1px }
+.side.买入, .side.加仓 { background: var(--buy-bg); color: var(--buy) }
+.side.卖出, .side.减仓 { background: var(--sell-bg); color: var(--sell) }
+.up { color: var(--buy) } .dn { color: var(--sell) }
+.empty-s { color: var(--ink-3); padding: 18px 0 8px; text-align: center; font-size: 14px }
+
+.grid2 { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) }
+.alloc { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; background: var(--chip) }
+.alloc i { display: block; height: 100% }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2) }
+.legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; background: var(--c) }
+.conds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px }
+.conds li { display: flex; gap: 9px; align-items: baseline; color: var(--ink-2) }
+.conds .ok, .conds .no { flex: none; width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; transform: translateY(3px) }
+.conds .ok { background: var(--accent-bg); color: var(--accent) } .conds .no { background: var(--chip); color: var(--ink-3) }
+.chart svg { display: block; width: 100%; height: 170px; overflow: visible }
+.hist { display: grid; gap: 8px; font-size: 13px; max-height: 320px; overflow: auto; padding-right: 4px }
+.hist .d { color: var(--ink-3); font-family: var(--f-num); font-size: 12px; margin-right: 6px }
+.hist .s-买入, .hist .s-加仓 { color: var(--buy) } .hist .s-卖出, .hist .s-减仓 { color: var(--sell) }
 
 .tip { position: fixed; z-index: 30; pointer-events: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
   padding: 6px 9px; font-size: 12.5px; box-shadow: 0 4px 14px rgba(0,0,0,.12); color: var(--ink) }
-
 dialog { border: 1px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); padding: 18px; width: min(420px, calc(100vw - 32px)) }
 dialog::backdrop { background: rgba(0,0,0,.35) }
 dialog h2 { margin: 0 0 12px; font-size: 16px }
 .pick-list { display: grid; gap: 8px }
-.pick-list label { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; font-size: 14.5px }
+.pick-list label { display: flex; gap: 10px; align-items: center; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 10px; font-size: 14.5px; cursor: pointer }
 .pick-list input { width: 18px; height: 18px; accent-color: var(--accent) }
 .pick-act { display: flex; justify-content: flex-end; margin-top: 14px }
-.primary { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 8px; padding: 7px 18px }
+.primary { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 8px; padding: 7px 20px }
 
+@media (max-width: 720px) { .grid2 { grid-template-columns: minmax(0, 1fr) } }
 @media (max-width: 560px) {
-  .tbl .hide-s { display: none }
-  .card { padding: 14px 12px }
+  .wrap { padding-top: 20px; gap: 26px }
+  .cards { grid-template-columns: minmax(0, 1fr) }
+  .stats { gap: 8px } .stat { padding: 10px 12px } .stat .v { font-size: 22px }
+  .status { display: none }
+  .panel { padding: 14px }
 }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }

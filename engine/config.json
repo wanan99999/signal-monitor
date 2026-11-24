@@ -1,0 +1,10 @@
+{
+  "strategies": [
+    {"id": "combo", "title": "全行情切换组合（三合一 V1.4）", "func": "combo", "enabled": true,
+     "link": "https://wanan99999.github.io/quant-strategies/s/full-cycle-switch.html"},
+    {"id": "steady", "title": "大盘股熊市震荡市稳健策略", "func": "steady", "enabled": true,
+     "link": "https://wanan99999.github.io/quant-strategies/s/stock-steady-trend.html"},
+    {"id": "bank", "title": "银行股顺势策略", "func": "bank", "enabled": true,
+     "link": "https://wanan99999.github.io/quant-strategies/s/bank-momentum.html"}
+  ]
+}

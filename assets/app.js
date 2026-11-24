@@ -11,7 +11,18 @@
   var ALLOC = [["a", "稳健块", "#2a78d6"], ["s", "个股块", "#8a5cd1"], ["b", "板块块（ETF）", "#c2871a"]];
   var isBuy = function (t) { return t.side === "买入" || t.side === "加仓"; };
   var isSell = function (t) { return t.side === "卖出" || t.side === "减仓"; };
-  var DATA = null;
+  var DATA = null, SKEY = "sig-start", CUR = null;   // CUR：详情页当前加载的起点数据
+
+  // 每个策略自己的起点（存在浏览器里）；不在可选范围内就退回最早可选日
+  function getStart(s) {
+    var m = {}; try { m = JSON.parse(localStorage.getItem(SKEY)) || {}; } catch (e) {}
+    return s.starts[m[s.id]] ? m[s.id] : s.default_start;
+  }
+  function setStart(id, d) {
+    var m = {}; try { m = JSON.parse(localStorage.getItem(SKEY)) || {}; } catch (e) {}
+    m[id] = d; try { localStorage.setItem(SKEY, JSON.stringify(m)); } catch (e) {}
+  }
+  function summ(s) { var x = s.starts[getStart(s)] || []; return { action: x[0], nb: x[1] || 0, ns: x[2] || 0, nh: x[3] || 0, reb: x[4], next: x[5] }; }
 
   function getPicked(all) {
     try { var x = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(x)) return x.filter(function (id) { return all.indexOf(id) >= 0; }); } catch (e) {}
@@ -43,8 +54,34 @@
     $("status").textContent = md(DATA.date) + " " + modeTxt() + " · 行情 " + DATA.quote_time;
     var m = location.hash.match(/^#\/(\w+)(?:\/(buy|sell|hold))?/);
     var s = m && DATA.strategies.filter(function (x) { return x.id === m[1]; })[0];
-    $("view").innerHTML = s ? detail(s, m[2]) : home();
-    if (s) { chart(s); bindTabs(s); document.title = s.title + " · 策略信号"; } else document.title = "策略信号";
+    if (!s) { $("view").innerHTML = home(); document.title = "策略信号"; return; }
+    var sd = getStart(s), tab = m[2];
+    document.title = s.title + " · 策略信号";
+    if (CUR && CUR.id === s.id && CUR.start === sd && CUR.date === DATA.date && CUR.mode === DATA.mode) return show(s, CUR, tab);
+    $("view").innerHTML = '<a class="back" href="#/">← 全部策略</a><p class="loading">加载中…</p>';
+    fetch("data/s/" + s.id + "/" + sd + ".json?t=" + Date.now()).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (o) { CUR = o; show(s, o, tab); })
+      .catch(function () { $("view").innerHTML = '<a class="back" href="#/">← 全部策略</a><p class="empty">这个起点的数据加载失败，请稍后刷新。</p>'; });
+  }
+
+  function show(meta, o, tab) {
+    $("view").innerHTML = detail(meta, o, tab);
+    chart(o); bindTabs(o);
+    var sel = $("startSel");
+    if (sel) sel.addEventListener("change", function () {
+      setStart(meta.id, sel.value); CUR = null;
+      history.replaceState(null, "", "#/" + meta.id); route();
+    });
+  }
+
+  function startPicker(meta, cur) {
+    var ds = Object.keys(meta.starts).sort().reverse(), today = DATA.date;
+    var opt = ds.map(function (d) {
+      var w = WEEK[new Date(d + "T00:00:00").getDay()];
+      var tail = d === today ? "（今天）" : d === meta.default_start ? "（最早可选）" : "";
+      return '<option value="' + d + '"' + (d === cur ? " selected" : "") + ">" + md(d) + " 周" + w + tail + "</option>";
+    }).join("");
+    return '<label class="startpick"><span>从</span><select id="startSel" aria-label="开始跟的日期">' + opt + "</select><span>开始跟</span></label>";
   }
 
   // ---------------- 首页 ----------------
@@ -53,8 +90,8 @@
     var shown = j.strategies.filter(function (s) { return picked.indexOf(s.id) >= 0; });
     var nb = 0, ns = 0, act = 0;
     shown.forEach(function (s) {
-      var b = s.trades.filter(isBuy).length, se = s.trades.filter(isSell).length;
-      nb += b; ns += se; if (b + se) act++;
+      var x = summ(s);
+      nb += x.nb; ns += x.ns; if (x.nb + x.ns) act++;
     });
     var d = new Date(j.date + "T00:00:00");
     var when = j.mode === "intraday"
@@ -76,26 +113,28 @@
   }
 
   function card(s) {
-    var b = s.trades.filter(isBuy).length, se = s.trades.filter(isSell).length;
-    var tag = s.stale ? "上次结果" : (s.action === "不动" || s.action === "空仓" ? "今天" + s.action : "今天" + s.action);
-    var reb = s.rebalance_today ? "今天调仓日" : "下次调仓 " + md(s.next_rebalance);
+    var x = summ(s), b = x.nb, se = x.ns;
+    var tag = s.stale ? "上次结果" : "今天" + x.action;
+    var reb = (x.reb ? "今天调仓日" : "下次调仓 " + md(x.next)) + " · " + md(getStart(s)) + "起跟";
     return '<article class="card"><a class="cover" href="#/' + s.id + '" aria-label="查看' + esc(s.title) + '的操作提示"></a>' +
-      '<div class="card-top"><span class="tag t-' + s.action + '">' + tag + '</span><span class="card-meta">' + reb + "</span></div>" +
+      '<div class="card-top"><span class="tag t-' + x.action + '">' + tag + '</span><span class="card-meta">' + reb + "</span></div>" +
       "<h3>" + esc(s.title) + "</h3><p>" + esc(s.tagline || s.rule) + "</p>" +
       '<div class="card-sig"><a class="sig buy' + (b ? " on" : "") + '" href="#/' + s.id + '/buy">买入 <b>' + b + '</b></a>' +
       '<a class="sig sell' + (se ? " on" : "") + '" href="#/' + s.id + '/sell">卖出 <b>' + se + "</b></a>" +
-      '<span class="hold">持有 ' + s.holdings.length + " 只</span></div></article>";
+      '<span class="hold">持有 ' + x.nh + " 只</span></div></article>";
   }
 
   // ---------------- 详情页 ----------------
-  function detail(s, tab) {
+  function detail(meta, s, tab) {
     var buys = s.trades.filter(isBuy), sells = s.trades.filter(isSell);
     tab = tab || (buys.length ? "buy" : sells.length ? "sell" : "hold");
     var h = ['<a class="back" href="#/">← 全部策略</a>', banners()];
     h.push('<section class="d-head"><div class="card-top"><span class="tag t-' + s.action + '">今天' + s.action + '</span><span class="pill' + (DATA.mode === "intraday" ? " live" : "") + '"><span class="dot"></span>' + modeTxt() + " · " + DATA.quote_time + "</span></div>" +
-      "<h1>" + esc(s.title) + "</h1><p>" + esc(s.tagline || "") + "</p>" +
+      "<h1>" + esc(meta.title) + "</h1><p>" + esc(meta.tagline || "") + "</p>" + startPicker(meta, s.start) +
+      '<p class="note">' + (s.start === DATA.date ? "今天开始跟：今天空仓，按策略清单建仓" : md(s.start) + " 空仓起步、当天建仓") +
+      "，之后按规则调仓。下面的买卖提示、持有清单和走势都按这个起点计算。</p>" +
       '<div class="d-meta"><span>' + (s.rebalance_today ? "今天是例行调仓日" : "下次例行调仓：" + md(s.next_rebalance)) + "</span><span>持有 " + s.holdings.length + " 只 · 现金 " + pct(Math.max(0, s.cash)) + "</span>" +
-      (s.link ? '<a href="' + s.link + '" target="_blank" rel="noopener">规则详细说明 ↗</a>' : "") + "</div></section>");
+      (meta.link ? '<a href="' + meta.link + '" target="_blank" rel="noopener">规则详细说明 ↗</a>' : "") + "</div></section>");
     if (s.alloc) {
       var al = s.alloc;
       h.push('<section class="panel"><h2>今天钱怎么分</h2><div class="alloc" role="img" aria-label="资金分配">' + ALLOC.map(function (a) { return al[a[0]] > 0 ? '<i style="flex:' + al[a[0]] + ";background:" + a[2] + '"></i>' : ""; }).join("") + "</div>" +
@@ -109,7 +148,7 @@
       (s.minor ? '<div class="note">另有 ' + s.minor + " 笔仓位变动不到 1.5% 的微调，可忽略。</div>" : "") +
       (s.intraday ? '<div class="cmp' + (s.intraday_same ? "" : " diff") + '">' + (s.intraday_same ? "和盘中提示一致。" :
         "和盘中提示不一致（盘中提示：" + (s.intraday.trades.length ? s.intraday.trades.map(function (t) { return t.side + t.name; }).join("、") : "不操作") + "），以这里为准。") + "</div>" : "") +
-      '<div class="note">你现在是空仓：照「持有」里的清单和比例买入，就和策略同步了。</div></section>');
+      (s.start === DATA.date ? "" : '<div class="note">如果你是今天才开始、现在空仓：照「持有」里的清单和比例买入，就和这个起点的策略同步了；或者把起点改成今天。</div>') + "</section>");
     h.push('<div class="grid2"><section class="panel"><h2>判断依据</h2><ul class="conds">' + (s.conditions || []).map(function (c) {
       return '<li><span class="' + (c.ok ? "ok" : "no") + '">' + (c.ok ? "✓" : "✗") + "</span><span>" + esc(c.text) + "</span></li>";
     }).join("") + '</ul><div class="note">规则：' + esc(s.rule) + "</div></section>" +

@@ -16,6 +16,7 @@ ROOT = D.ROOT
 OUT = os.path.join(ROOT, "data")
 CONF = json.load(open(os.path.join(ROOT, "engine", "config.json"), encoding="utf-8"))
 DONE = os.path.join(D.CACHE, "done.json")
+N_STARTS = 60
 
 
 def done_get():
@@ -42,7 +43,7 @@ def short(code):
     return code[2:]
 
 
-def build_output(strat, b, extra, m, q, today, mode, prev_json):
+def build_output(strat, start, b, extra, m, q, today, mode, prev):
     d = m.dates[-1]
     w = b.weights(d)
     etf_names = extra.get("etf_names", {})
@@ -88,11 +89,12 @@ def build_output(strat, b, extra, m, q, today, mode, prev_json):
               for t in b.trades[day] if big(t)]
         if ts:
             hist.append(dict(date=day.strftime("%Y-%m-%d"), trades=ts))
-    nr = m.next_rebal(d, extra.get("every", 5))
-    out = dict(id=strat["id"], title=strat["title"], cat=strat.get("cat"), tagline=strat.get("tagline", ""), link=strat.get("link"), rule=extra.get("rule", ""),
+    ck, every = extra["clock"], extra.get("every", 5)
+    nr = ck.next_rebal(d, every)
+    out = dict(id=strat["id"], start=start, date=today, mode=mode, title=strat["title"], rule=extra.get("rule", ""),
                action=action, trades=today_tr, minor=minor, holdings=hold, cash=round(1 - sum(w.values()), 4),
                conditions=extra.get("conditions", []),
-               rebalance_today=bool(m.n(d) % extra.get("every", 5) == 0),
+               rebalance_today=bool(ck.n(d) % every == 0),
                next_rebalance=nr.strftime("%Y-%m-%d") if nr is not None else None,
                nav=dict(dates=[x.strftime("%Y-%m-%d") for x in nav.index], v=[round(float(v), 4) for v in nav.values]),
                perf=dict(total=round(float(nav.iloc[-1] - 1), 4), maxdd=round(float((nav / nav.cummax() - 1).min()), 4),
@@ -100,16 +102,13 @@ def build_output(strat, b, extra, m, q, today, mode, prev_json):
                history=hist)
     if "alloc" in extra:
         out["alloc"] = extra["alloc"]
-        out["alloc_hist"] = extra["alloc_hist"]
-    # 收盘版保留同一天盘中提示，方便对照
-    if mode == "close" and prev_json and prev_json.get("date") == today and prev_json.get("mode") in ("intraday", "close"):
-        old = next((s for s in prev_json.get("strategies", []) if s["id"] == strat["id"]), None)
-        if old:
-            src = old.get("intraday") if prev_json.get("mode") == "close" else dict(time=prev_json.get("updated"), action=old["action"], trades=old["trades"])
-            if src:
-                out["intraday"] = src
-                key = lambda ts: sorted((t["code"], t["side"]) for t in ts)
-                out["intraday_same"] = key(src["trades"]) == key(today_tr)
+    # 收盘版保留同一天、同一起点的盘中提示，方便对照
+    if mode == "close" and prev and prev.get("date") == today:
+        src = prev.get("intraday") if prev.get("mode") == "close" else dict(action=prev["action"], trades=prev["trades"])
+        if src:
+            out["intraday"] = src
+            key = lambda ts: sorted((t["code"], t["side"]) for t in ts)
+            out["intraday_same"] = key(src["trades"]) == key(today_tr)
     return out
 
 
@@ -184,15 +183,35 @@ def main():
         prev_json = json.load(open(os.path.join(OUT, "signals.json"), encoding="utf-8"))
     except Exception:
         prev_json = None
+    starts = [x.strftime("%Y-%m-%d") for x in m.dates[-N_STARTS:]]     # 可选起点：最近 60 个交易日（含今天）
     res = []
     for st in CONF["strategies"]:
         if not st.get("enabled", True):
             continue
         t1 = time.time()
+        folder = os.path.join(OUT, "s", st["id"])
         try:
-            b, extra = getattr(S, st["func"])(m, ctx, **st.get("params", {}))
-            res.append(build_output(st, b, extra, m, q, today, mode, prev_json))
-            D.log("%s：%s（%.0fs）" % (st["title"], res[-1]["action"], time.time() - t1))
+            files, summ = {}, {}
+            for sd in starts:
+                try:
+                    prev = json.load(open(os.path.join(folder, sd + ".json"), encoding="utf-8"))
+                except Exception:
+                    prev = None
+                b, extra = getattr(S, st["func"])(m, ctx, sd, **st.get("params", {}))
+                o = build_output(st, sd, b, extra, m, q, today, mode, prev)
+                files[sd] = o
+                nb = sum(t["side"] in ("买入", "加仓") for t in o["trades"]); ns = len(o["trades"]) - nb
+                summ[sd] = [o["action"], nb, ns, len(o["holdings"]), o["rebalance_today"], o["next_rebalance"]]
+            if os.path.isdir(folder):
+                for f in os.listdir(folder):
+                    os.remove(os.path.join(folder, f))
+            os.makedirs(folder, exist_ok=True)
+            for sd, o in files.items():
+                with open(os.path.join(folder, sd + ".json"), "w", encoding="utf-8") as f:
+                    json.dump(o, f, ensure_ascii=False, separators=(",", ":"))
+            res.append(dict(id=st["id"], title=st["title"], cat=st.get("cat"), tagline=st.get("tagline", ""), link=st.get("link"),
+                            default_start=starts[0], starts=summ))
+            D.log("%s：%d 个起点，最早起点今天%s（%.0fs）" % (st["title"], len(starts), summ[starts[0]][0], time.time() - t1))
         except Exception:
             D.log("%s 出错：\n%s" % (st["title"], traceback.format_exc()))
             warn.append("%s 本次计算出错，显示的是上一次结果" % st["title"])
@@ -214,7 +233,7 @@ def main():
 
 def push(msg):
     g = lambda *x: subprocess.run(["git", "-C", ROOT] + list(x), capture_output=True, text=True, encoding="utf-8")
-    g("add", "data/signals.json")
+    g("add", "-A", "data")
     r = g("commit", "-m", msg)
     if "nothing to commit" in (r.stdout + r.stderr):
         return

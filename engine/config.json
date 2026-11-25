@@ -1,7 +1,8 @@
 {
   "cats": [
     {"id": "dividend", "title": "股息率策略", "desc": "主要用于银行、煤炭、石油石化等高股息股。"},
-    {"id": "trend", "title": "趋势策略", "desc": "根据行情变动，分为上行期、下行期、震荡期策略。"}
+    {"id": "trend", "title": "趋势策略", "desc": "根据行情变动，分为上行期、下行期、震荡期策略。"},
+    {"id": "mine", "title": "我的组合策略", "desc": "在「组合配置」页自己搭的组合，和上面的策略同一时间出提示。"}
   ],
   "strategies": [
     {"id": "combo", "cat": "trend", "title": "全行情切换组合（三合一 V1.4）", "func": "combo", "enabled": true,

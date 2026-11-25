@@ -210,9 +210,17 @@ def index_daily(sym):
 
 
 def index_spot(syms):
-    d = retry(lambda: _ak().stock_zh_index_spot_sina())
-    d = d.set_index("代码")
-    return d.reindex(syms)["最新价"].astype(float)
+    """指数实时价；新浪失败时改用腾讯行情（同样的 sh000852 代码）"""
+    try:
+        d = retry(lambda: _ak().stock_zh_index_spot_sina())
+        d = d.set_index("代码")
+        out = d.reindex(syms)["最新价"].astype(float)
+        if out.notna().all():
+            return out
+    except Exception as e:
+        log("新浪指数行情失败，改用腾讯：%s" % e)
+    q = tx_quote(list(syms))
+    return q["price"].reindex(syms).astype(float)
 
 
 # ---------------- 申万行业 ----------------
@@ -228,7 +236,7 @@ def sw_list(level):
     return x
 
 
-def sw_hist(codes, name, max_age=0.5):
+def sw_hist(codes, name, max_age=0.5, since=None):
     """申万指数日收盘 DataFrame[日期 × 代码]（收盘后更新）"""
     x = load(name)
     if x is not None and age_days(name) <= max_age:
@@ -242,7 +250,7 @@ def sw_hist(codes, name, max_age=0.5):
             return c, None
     res = dict(pmap(one, codes))
     df = pd.DataFrame({c: s for c, s in res.items() if s is not None}).sort_index()
-    df = df[df.index >= pd.Timestamp(HIST_START) - pd.Timedelta(days=400)]
+    df = df[df.index >= (pd.Timestamp(since) if since else pd.Timestamp(HIST_START) - pd.Timedelta(days=400))]
     save(name, df)
     return df
 

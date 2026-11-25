@@ -8,7 +8,7 @@
   var spct = function (x, d) { return x == null ? "—" : (x > 0 ? "+" : "") + (x * 100).toFixed(d == null ? 2 : d) + "%"; };
   var md = function (s) { return s ? +s.slice(5, 7) + "月" + +s.slice(8, 10) + "日" : ""; };
   var WEEK = "日一二三四五六";
-  var ALLOC = [["a", "稳健块", "#2a78d6"], ["s", "个股块", "#8a5cd1"], ["b", "板块块（ETF）", "#c2871a"]];
+  var ALLOC = [["a", "稳健位", "#2a78d6"], ["s", "个股位", "#8a5cd1"], ["b", "板块位", "#c2871a"]];
   var isBuy = function (t) { return t.side === "买入" || t.side === "加仓"; };
   var isSell = function (t) { return t.side === "卖出" || t.side === "减仓"; };
   var DATA = null, SKEY = "sig-start", CUR = null;   // CUR：详情页当前加载的起点数据
@@ -25,10 +25,14 @@
   function summ(s) { var x = s.starts[getStart(s)] || []; return { action: x[0], nb: x[1] || 0, ns: x[2] || 0, nh: x[3] || 0, reb: x[4], next: x[5] }; }
 
   function getPicked(all) {
-    try { var x = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(x)) return x.filter(function (id) { return all.indexOf(id) >= 0; }); } catch (e) {}
+    try {
+      var x = JSON.parse(localStorage.getItem(KEY)), seen = JSON.parse(localStorage.getItem("sig-seen")) || [];
+      if (Array.isArray(x)) return x.filter(function (id) { return all.indexOf(id) >= 0; })
+        .concat(all.filter(function (id) { return id.indexOf("u-") === 0 && x.indexOf(id) < 0 && seen.indexOf(id) < 0; }));   // 新建的组合自动显示
+    } catch (e) {}
     return all.slice();
   }
-  function setPicked(x) { try { localStorage.setItem(KEY, JSON.stringify(x)); } catch (e) {} }
+  function setPicked(x) { try { localStorage.setItem(KEY, JSON.stringify(x)); localStorage.setItem("sig-seen", JSON.stringify(DATA.strategies.map(function (s) { return s.id; }))); } catch (e) {} }
   function bjNow() { var d = new Date(); return new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000); }
   function ymd(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
   function modeTxt() { return DATA.mode === "intraday" ? "盘中提示" : "收盘复核"; }

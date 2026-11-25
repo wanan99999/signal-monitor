@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import data as D
 from market import Mkt
 import strategies as S
+import combo2 as C2
+import cloud
 
 ROOT = D.ROOT
 OUT = os.path.join(ROOT, "data")
@@ -150,7 +152,7 @@ def main():
     else:
         Hx = D.with_snapshot(H, q, today)
     # 指数（今天用实时价补上）
-    spot = D.index_spot(["sh000852", "sh000300"])
+    spot = D.index_spot(list(C2.INDEX_NAMES))
     def idx(sym):
         s = D.index_daily(sym)
         s = s[s.index < pd.Timestamp(today)]
@@ -179,15 +181,25 @@ def main():
     m = Mkt(Hx, names, cal, today)
     ctx = S.Ctx(F=F, ind=ind, q=q, bank_codes=bank_codes, i1000=i1000, i300=i300, sw1=sw1, sw2=sw2,
                 sw2_names=dict(l2), etf_close=ec, etf_amt=ea, etf_list=elist)
+    ctx.today_spot = (pd.Timestamp(today), lambda sym: float(spot[sym]) if sym in spot.index and pd.notna(spot[sym]) else None)
+    # 云端「我的组合」：每个组合当成一个策略，归到「我的组合策略」分类
+    strategies = [x for x in CONF["strategies"] if x.get("enabled", True)]
+    cl, cl_stale = cloud.combos()
+    if cl_stale:
+        warn.append("这次没连上云端，「我的组合策略」用的是上一次读到的配置")
+    for c in cl:
+        bad = C2.check(c["config"])
+        if bad:
+            warn.append("组合「%s」配置有问题，跳过：%s" % (c["name"], "；".join(bad))); continue
+        strategies.append(dict(id="u-" + c["id"][:8], cat="mine", title=c["name"], tagline=C2.summary(c["config"]),
+                               link=cloud.VIEW + c["id"], cfg=c["config"], combo_id=c["id"]))
     try:
         prev_json = json.load(open(os.path.join(OUT, "signals.json"), encoding="utf-8"))
     except Exception:
         prev_json = None
     starts = [x.strftime("%Y-%m-%d") for x in m.dates[-N_STARTS:]]     # 可选起点：最近 60 个交易日（含今天）
     res = []
-    for st in CONF["strategies"]:
-        if not st.get("enabled", True):
-            continue
+    for st in strategies:
         t1 = time.time()
         folder = os.path.join(OUT, "s", st["id"])
         try:
@@ -197,7 +209,10 @@ def main():
                     prev = json.load(open(os.path.join(folder, sd + ".json"), encoding="utf-8"))
                 except Exception:
                     prev = None
-                b, extra = getattr(S, st["func"])(m, ctx, sd, **st.get("params", {}))
+                if "cfg" in st:
+                    b, extra = C2.run(m, ctx, sd, st["cfg"])
+                else:
+                    b, extra = getattr(S, st["func"])(m, ctx, sd, **st.get("params", {}))
                 o = build_output(st, sd, b, extra, m, q, today, mode, prev)
                 files[sd] = o
                 nb = sum(t["side"] in ("买入", "加仓") for t in o["trades"]); ns = len(o["trades"]) - nb
@@ -210,7 +225,7 @@ def main():
                 with open(os.path.join(folder, sd + ".json"), "w", encoding="utf-8") as f:
                     json.dump(o, f, ensure_ascii=False, separators=(",", ":"))
             res.append(dict(id=st["id"], title=st["title"], cat=st.get("cat"), tagline=st.get("tagline", ""), link=st.get("link"),
-                            default_start=starts[0], starts=summ))
+                            default_start=starts[0], starts=summ, **({"combo_id": st["combo_id"]} if "combo_id" in st else {})))
             D.log("%s：%d 个起点，最早起点今天%s（%.0fs）" % (st["title"], len(starts), summ[starts[0]][0], time.time() - t1))
         except Exception:
             D.log("%s 出错：\n%s" % (st["title"], traceback.format_exc()))
@@ -218,6 +233,11 @@ def main():
             old = next((s for s in (prev_json or {}).get("strategies", []) if s["id"] == st["id"]), None)
             if old:
                 old["stale"] = True; res.append(old)
+    live = {x["id"] for x in strategies}
+    sdir = os.path.join(OUT, "s")
+    for f in os.listdir(sdir) if os.path.isdir(sdir) else []:
+        if f.startswith("u-") and f not in live:
+            import shutil; shutil.rmtree(os.path.join(sdir, f), ignore_errors=True)
     out = dict(date=today, mode=mode, updated=D.bj_now().strftime("%Y-%m-%d %H:%M"),
                quote_time=pd.to_datetime(q["ts"].astype(str).max(), format="%Y%m%d%H%M%S").strftime("%H:%M"),
                next_trade_day=cal[cal > pd.Timestamp(today)][0].strftime("%Y-%m-%d"),

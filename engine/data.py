@@ -120,9 +120,13 @@ def stock_codes(refresh=False):
     """全 A 代码（不含北交所），每天刷新一次"""
     c = load("codes.pkl")
     if c is None or refresh or age_days("codes.pkl") > 0.5:
-        d = retry(lambda: _ak().stock_zh_a_spot())
-        c = sorted(x for x in d["代码"] if x[:2] in ("sh", "sz"))
-        save("codes.pkl", c)
+        try:
+            d = retry(lambda: _ak().stock_zh_a_spot())
+            c = sorted(x for x in d["代码"] if x[:2] in ("sh", "sz"))
+            save("codes.pkl", c)
+        except Exception as e:
+            if c is None: raise
+            log("股票代码表更新失败，沿用缓存：%s" % str(e)[-80:])
     return c
 
 
@@ -249,9 +253,17 @@ def sw_hist(codes, name, max_age=0.5, since=None):
         except Exception:
             return c, None
     res = dict(pmap(one, codes))
-    df = pd.DataFrame({c: s for c, s in res.items() if s is not None}).sort_index()
+    got = {c: s for c, s in res.items() if s is not None}
+    if len(got) < len(codes):
+        log("申万行业指数 %s 只取到 %d/%d 个%s" % (name, len(got), len(codes), "，沿用缓存补齐" if x is not None else ""))
+    if not got:
+        if x is not None: return x
+        raise RuntimeError("申万行业指数全部下载失败，且没有缓存")
+    df = pd.DataFrame(got).sort_index()
+    if x is not None:
+        df = df.combine_first(x) if len(got) < len(codes) else df
     df = df[df.index >= (pd.Timestamp(since) if since else pd.Timestamp(HIST_START) - pd.Timedelta(days=400))]
-    save(name, df)
+    if len(got) == len(codes): save(name, df)
     return df
 
 
@@ -335,10 +347,25 @@ def fin_asof(F, day):
 def etf_list():
     x = load("etf_list.pkl")
     if x is None or age_days("etf_list.pkl") > 7:
-        d = retry(lambda: _ak().fund_etf_category_sina(symbol="ETF基金"))
-        x = list(zip(d["代码"], d["名称"]))
-        save("etf_list.pkl", x)
+        try:
+            d = retry(lambda: _ak().fund_etf_category_sina(symbol="ETF基金"))
+            x = list(zip(d["代码"], d["名称"]))
+            save("etf_list.pkl", x)
+        except Exception as e:
+            if x is None: raise
+            log("ETF 列表更新失败，沿用缓存：%s" % str(e)[-80:])
     return x
+
+
+def etf_spot(codes):
+    """ETF 今日行情 DataFrame[index=代码]：最新价、昨收。新浪失败时改用腾讯"""
+    try:
+        es = retry(lambda: _ak().fund_etf_category_sina(symbol="ETF基金")).set_index("代码")
+        return es[["最新价", "昨收"]]
+    except Exception as e:
+        log("新浪 ETF 行情失败，改用腾讯：%s" % str(e)[-80:])
+    q = tx_quote(list(codes))
+    return pd.DataFrame({"最新价": q["price"], "昨收": q["prev"]})
 
 
 def etf_hist(codes, max_age=0.5):
@@ -356,6 +383,9 @@ def etf_hist(codes, max_age=0.5):
         except Exception:
             return c, None
     res = {c: d for c, d in pmap(one, codes) if d is not None and len(d)}
+    if len(res) < len(codes) * 0.8 and x is not None:
+        log("ETF 日线只取到 %d/%d 只，沿用缓存" % (len(res), len(codes)))
+        return x
     close = pd.DataFrame({c: d["close"] for c, d in res.items()}).sort_index().astype(float)
     amount = pd.DataFrame({c: d["amount"] for c, d in res.items()}).sort_index().astype(float)
     r = close.pct_change()

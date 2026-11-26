@@ -4,8 +4,15 @@
   python run.py              自动：北京时间 14:30–14:59 跑盘中，15:35 以后跑收盘；当天跑过就跳过；非交易日退出
   python run.py --mode intraday|close [--force] [--no-push]
 """
-import os, sys, json, argparse, subprocess, traceback, time
+import os, sys, json, argparse, subprocess, traceback, time, socket, threading
 import numpy as np, pandas as pd
+
+socket.setdefaulttimeout(30)          # 任何网络请求最多卡 30 秒（akshare 部分接口没设超时）
+def _watchdog(minutes=40):
+    time.sleep(minutes * 60)
+    try: D.log("运行超过 %d 分钟，强制结束" % minutes)
+    finally: os._exit(3)
+threading.Thread(target=_watchdog, daemon=True).start()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import data as D
@@ -119,8 +126,11 @@ def main():
     ap.add_argument("--mode", choices=["intraday", "close", "auto"], default="auto")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--no-push", action="store_true")
+    ap.add_argument("--date", help="补跑某天的收盘（仅当行情还停在那天时，如次日开盘前）")
     a = ap.parse_args()
     now = D.bj_now()
+    if a.date:
+        now = pd.Timestamp(a.date + " 15:40").to_pydatetime()
     today = now.strftime("%Y-%m-%d")
     if not D.is_trade_day(today) and not a.force:
         D.log("今天不是交易日，退出"); return
@@ -170,7 +180,7 @@ def main():
     elist = D.etf_list()
     cand = [c for c, n in elist if not any(k in n for k in S.ETF_EXCLUDE)]
     ec, ea = D.etf_hist(cand, 0.3 if mode == "close" else 3)
-    es = D.retry(lambda: D._ak().fund_etf_category_sina(symbol="ETF基金")).set_index("代码")
+    es = D.etf_spot(cand)
     es = es[pd.to_numeric(es["最新价"], errors="coerce") > 0]
     D._etf_spot = {c: (float(es.at[c, "最新价"]), float(es.at[c, "最新价"]) / float(es.at[c, "昨收"]) - 1 if float(es.at[c, "昨收"]) else None)
                    for c in es.index}

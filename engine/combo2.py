@@ -413,6 +413,15 @@ V14 = dict(name="原方案（V1.4 三合一）", max_hold=10, tol=0.25, rule=Rul
            alloc=dict(normal=dict(steady=1.0), small=dict(small=1.0), both=dict(small_mix=0.5, etf=0.5)))
 
 
+def meta():
+    """给网页 / 小程序的说明（data/meta.json）：行情名、指数名、策略插件及参数、默认切换规则、原方案 V1.4。
+    这些名称只在引擎里定义一次，前端都读这份，不再各自手写。"""
+    ps = [dict(id=pid, name=P.META["name"], slots=P.META["slots"], desc=P.META["desc"], rules=P.META["rules"],
+               reselect_on_enter=P.reselect_on_enter, params=[dict(key=k, **v) for k, v in P.META["params"].items()])
+          for pid, P in PLUGINS.items()]
+    return dict(plugins=ps, states=STATES, index_names=INDEX_NAMES, rule_default=Rule.DEFAULT, v14=V14)
+
+
 def check(cfg):
     """配置检查：返回问题列表（空 = 通过）"""
     errs = []

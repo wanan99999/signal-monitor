@@ -191,6 +191,10 @@ def main():
     ctx.today_spot = (pd.Timestamp(today), lambda sym: float(spot[sym]) if sym in spot.index and pd.notna(spot[sym]) else None)
     # 云端「我的组合」：每个组合当成一个策略，归到「我的组合策略」分类
     strategies = [x for x in CONF["strategies"] if x.get("enabled", True)]
+    try:                                                  # 行情名 / 指数名 / 策略说明：前端统一读这份
+        json.dump(C2.meta(), open(os.path.join(OUT, "meta.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    except Exception as e:
+        D.log("写 meta.json 失败：%s" % e)
     cl, cl_stale = cloud.combos()
     if cl_stale:
         warn.append("这次没连上云端，「我的组合策略」用的是上一次读到的配置")

@@ -14,9 +14,10 @@ import numpy as np, pandas as pd, requests
 
 warnings.filterwarnings("ignore")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE = os.path.join(ROOT, "cache")
+CACHE = os.environ.get("SM_CACHE") or os.path.join(ROOT, "cache")        # 回测用 cache/bt（见 bt_base.py）
 os.makedirs(CACHE, exist_ok=True)
-HIST_START = "20240501"          # 历史从这里开始（回放约 300 个交易日 + 250 日回看）
+HIST_START = os.environ.get("SM_HIST_START") or "20240501"   # 历史从这里开始（回放约 300 个交易日 + 250 日回看）
+FIN_N = int(os.environ.get("SM_FIN_N") or 8)                  # 业绩报表取最近几期
 THREADS = 8
 
 
@@ -302,10 +303,11 @@ def sw_members(codes, name="sw_l2_members.pkl", max_age=7):
 
 
 # ---------------- 业绩报表 ----------------
-def _periods(n=8):
+def _periods(n=None):
+    n = n or FIN_N
     y = bj_now().year
     out = []
-    for yy in range(y, y - 4, -1):
+    for yy in range(y, y - 2 - n // 4, -1):
         for md in ("1231", "0930", "0630", "0331"):
             p = "%d%s" % (yy, md)
             if pd.Timestamp(p) < pd.Timestamp(bj_now().date()):

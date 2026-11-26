@@ -156,6 +156,31 @@ def main():
     if a.only:
         jobs = [j for j in jobs if j[0].startswith(a.only)]
     out = {}
+    solo = {}                                            # 子策略单独全程跑（同样的插件+参数只算一次）
+
+    def parts(cfg):
+        res = []
+        for sid, sv in cfg["sleeves"].items():
+            if not any(row.get(sid, 0) > 0 for row in cfg["alloc"].values()):
+                continue
+            key = json.dumps([sv["plugin"], sv.get("params", {})], sort_keys=True)
+            if key not in solo:
+                t2 = time.time()
+                try:
+                    one = dict(name=sid, max_hold=99, tol=cfg.get("tol", 0.25), rule=dict(type="fixed"),
+                               sleeves={sid: sv}, alloc=dict(normal={sid: 1.0}))
+                    b1, _ = C2.run(m, ctx, START, one)
+                    x = stats(b1.nav)
+                    solo[key] = {k: x[k] for k in ("ann", "mdd", "cum", "years")}
+                    D.log("  子策略 %s %s 单独跑：年化 %.1f%%（%.0fs）" % (sv["plugin"], sv.get("params", {}), x["ann"] * 100, time.time() - t2))
+                except Exception as e:
+                    D.log("  子策略 %s 单独跑出错：%s" % (sv["plugin"], e)); solo[key] = None
+            if solo[key]:
+                use = {st: round(row[sid], 4) for st, row in cfg["alloc"].items() if row.get(sid, 0) > 0}
+                res.append(dict(sid=sid, plugin=sv["plugin"], name=sv.get("name") or C2.PLUGINS[sv["plugin"]].META["name"],
+                                hold=sv.get("params", {}).get("hold"), use=use, **solo[key]))
+        return res
+
     for cid, name, cfg in jobs:
         t1 = time.time()
         try:
@@ -166,6 +191,7 @@ def main():
             r = stats(b.nav)
             r.update(asof=asof, ran=D.bj_now().strftime("%Y-%m-%d %H:%M"), start=START, name=name, cfg=cfg_hash(cfg), secs=round(time.time() - t1),
                      states={k: round(v, 3) for k, v in pd.Series(extra.get("states") or {}).value_counts(normalize=True).items()} if isinstance(extra.get("states"), dict) else None)
+            r["parts"] = parts(cfg)
             out[cid] = r
             D.log("回测 %s：年化 %.1f%% · 最大回撤 %.1f%% · 累计 %.0f%%（%.0fs）" % (name, r["ann"] * 100, r["mdd"] * 100, r["cum"] * 100, time.time() - t1))
         except Exception as e:

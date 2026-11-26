@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """一次性：搭回测底库 cache/bt/（2021-11 起的个股、申万、ETF、2021Q3 起业绩报表）。
 之后每晚 bt_nightly.py 把实盘缓存（cache/）的新数据接到底库后面，不用重抓。
-用法：python engine/bt_base.py        约 30–40 分钟（新浪逐只抓）
+用法：python engine/tools/bt_base.py        约 30–40 分钟（新浪逐只抓）
 """
 import os, sys, shutil
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BT = os.path.join(ROOT, "cache", "bt")
 os.environ["SM_CACHE"] = BT
 os.environ["SM_HIST_START"] = "20211101"
@@ -15,7 +15,7 @@ for f in ("calendar.pkl", "codes.pkl", "sw_l1_list.pkl", "sw_l2_list.pkl", "sw_l
     if os.path.exists(src) and not os.path.exists(os.path.join(BT, f)):
         shutil.copy2(src, os.path.join(BT, f))
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # engine/
 import socket; socket.setdefaulttimeout(30)
 import data as D
 import strategies as S

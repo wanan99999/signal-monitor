@@ -2,13 +2,13 @@
 """本地「假聚宽」：用本地缓存数据模拟聚宽 API，离线跑生成的聚宽代码，和 combo2 引擎对账。
 只实现组合模板用到的接口；成交按当天收盘价（14:50 ≈ 收盘），单边 0.15%（与本地 Book 一致）。
 用法：
-  python engine/jqsim.py <聚宽代码.py> <配置.json> 2024-01-02 2025-06-30 [--official-l2]
+  python engine/tools/jqsim.py <聚宽代码.py> <配置.json> 2024-01-02 2025-06-30 [--official-l2]
   --official-l2：板块用申万官方二级行业指数（和本地引擎一致，只对账逻辑）；默认走模板自己的成分股合成
 """
 import os, sys, json, types, time, datetime as dt
 import numpy as np, pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # engine/
 COST = 0.0015
 
 

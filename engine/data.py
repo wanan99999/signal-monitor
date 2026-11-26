@@ -14,7 +14,7 @@ import numpy as np, pandas as pd, requests
 
 warnings.filterwarnings("ignore")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE = os.environ.get("SM_CACHE") or os.path.join(ROOT, "cache")        # 回测用 cache/bt（见 bt_base.py）
+CACHE = os.environ.get("SM_CACHE") or os.path.join(ROOT, "cache")        # 回测用 cache/bt（见 tools/bt_base.py）
 os.makedirs(CACHE, exist_ok=True)
 HIST_START = os.environ.get("SM_HIST_START") or "20240501"   # 历史从这里开始（回放约 300 个交易日 + 250 日回看）
 FIN_N = int(os.environ.get("SM_FIN_N") or 8)                  # 业绩报表取最近几期

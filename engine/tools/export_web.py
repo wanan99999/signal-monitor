@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """给「组合配置」网页导出：策略插件说明（plugins.json）+ 切换规则即时统计要用的指数 / 行业收盘价（mkt.json）。
-输出到 D:\\quant-strategies\\combo\\data\\。用法：python export_web.py [--no-mkt]"""
+输出到 D:\\quant-strategies\\combo\\data\\。用法：python engine/tools/export_web.py [--no-mkt]"""
 import os, sys, json
 import pandas as pd
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # engine/
 import data as D
 import combo2 as C
 

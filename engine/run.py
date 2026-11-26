@@ -16,7 +16,7 @@ threading.Thread(target=_watchdog, daemon=True).start()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import data as D
-from market import Mkt
+import prep
 import strategies as S
 import combo2 as C2
 import cloud
@@ -175,7 +175,6 @@ def main():
     sw2 = D.sw_hist([c for c, _ in l2], "sw_l2.pkl", fresh)
     ind = D.sw_members([c for c, _ in l2])
     banks = D.sw_members(["801780"], "sw_bank.pkl")
-    bank_codes = [("sh" if c.startswith("6") else "sz") + c for c in banks]
     F = D.fin_reports() if mode == "close" or D.age_days("fin.pkl") > 3 else D.load("fin.pkl")
     elist = D.etf_list()
     cand = [c for c, n in elist if not any(k in n for k in S.ETF_EXCLUDE)]
@@ -187,10 +186,8 @@ def main():
     ec = ec[ec.index < pd.Timestamp(today)].copy()
     ec.loc[pd.Timestamp(today)] = pd.to_numeric(es["最新价"], errors="coerce").reindex(ec.columns)
     D.log("数据准备完成（%.0fs）" % (time.time() - t0))
-    names = q["name"]
-    m = Mkt(Hx, names, cal, today)
-    ctx = S.Ctx(F=F, ind=ind, q=q, bank_codes=bank_codes, i1000=i1000, i300=i300, sw1=sw1, sw2=sw2,
-                sw2_names=dict(l2), etf_close=ec, etf_amt=ea, etf_list=elist)
+    m, ctx = prep.assemble(Hx, q, cal, today, F=F, sw1=sw1, sw2=sw2, i1000=i1000, i300=i300,
+                           etf_close=ec, etf_amt=ea, etf_list=elist, ind=ind, banks=banks)
     ctx.today_spot = (pd.Timestamp(today), lambda sym: float(spot[sym]) if sym in spot.index and pd.notna(spot[sym]) else None)
     # 云端「我的组合」：每个组合当成一个策略，归到「我的组合策略」分类
     strategies = [x for x in CONF["strategies"] if x.get("enabled", True)]

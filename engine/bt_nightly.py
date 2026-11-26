@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """每晚本地回测：云端「我的组合」+ V1.4 原方案，从 2023-01-03 跑到最近收盘，写 data/combos/results.json 并推送。
-数据 = 回测底库 cache/bt/（bt_base.py 一次性搭好）+ 实盘缓存 cache/ 的新数据，接缝处对齐复权，不重抓。
+数据 = 回测底库 cache/bt/（tools/bt_base.py 一次性搭好）+ 实盘缓存 cache/ 的新数据，接缝处对齐复权，不重抓。
 用法：
   python engine/bt_nightly.py            直接跑
   python engine/bt_nightly.py --auto     定时任务用：今天收盘已复核、今晚还没算过才跑
@@ -12,8 +12,7 @@ import numpy as np, pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 socket.setdefaulttimeout(30)
 import data as D
-from market import Mkt
-import strategies as S
+import prep
 import combo2 as C2
 import cloud
 
@@ -54,7 +53,7 @@ def build_hist():
     B, L = bload("hist.pkl"), D.load("hist.pkl")
     d0 = L["close"].index[0]
     if B is None or d0 not in B["close"].index:
-        raise RuntimeError("回测底库缺失或接不上（先跑 bt_base.py）")
+        raise RuntimeError("回测底库缺失或接不上（先跑 tools/bt_base.py）")
     H = {}
     for k in L:
         if k == "fac":
@@ -76,24 +75,19 @@ def build_ctx():
     cal = D.calendar()
     i1000 = D.index_daily("sh000852"); i300 = D.index_daily("sh000300")
     i1000, i300 = i1000[i1000.index <= today], i300[i300.index <= today]
-    l2 = D.sw_list(2)
     sw = {}
     for nm in ("sw_l1.pkl", "sw_l2.pkl"):
         b, l = bload(nm), D.load(nm)
         sw[nm] = (l.combine_first(b) if b is not None else l).sort_index()
         sw[nm] = sw[nm][sw[nm].index <= today]
-    ind = D.load("sw_l2_members.pkl")
-    banks = D.load("sw_bank.pkl")
-    bank_codes = [("sh" if c.startswith("6") else "sz") + c for c in banks]
     F = dict(bload("fin.pkl") or {}); F.update(D.load("fin.pkl") or {})
     F = D.fix_annual_pub(F, D.report_dates(range(2022, today.year)))       # 往年年报的公告日被改写过，换成实际披露日
     elist = D.load("etf_list.pkl")
     (bc, ba), (lc, la) = bload("etf_hist.pkl"), D.load("etf_hist.pkl")
     ec = splice_scaled(bc, lc); ea = pd.concat([ba[ba.index < la.index[0]], la]).sort_index()
     ec, ea = ec[ec.index <= today], ea[ea.index <= today]
-    m = Mkt(H, q["name"], cal, today)
-    ctx = S.Ctx(F=F, ind=ind, q=q, bank_codes=bank_codes, i1000=i1000, i300=i300, sw1=sw["sw_l1.pkl"], sw2=sw["sw_l2.pkl"],
-                sw2_names=dict(l2), etf_close=ec, etf_amt=ea, etf_list=elist)
+    m, ctx = prep.assemble(H, q, cal, today, F=F, sw1=sw["sw_l1.pkl"], sw2=sw["sw_l2.pkl"], i1000=i1000, i300=i300,
+                           etf_close=ec, etf_amt=ea, etf_list=elist)
     D.log("夜间回测数据就绪：%s ~ %s，%d 只（%.0fs）" % (H["close"].index[0].date(), today.date(), H["close"].shape[1], time.time() - t0))
     return m, ctx
 

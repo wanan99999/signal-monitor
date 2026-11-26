@@ -5,7 +5,7 @@
   python run.py --mode intraday|close [--force] [--no-push]
 """
 import os, sys, json, argparse, subprocess, traceback, time, socket, threading
-import numpy as np, pandas as pd
+import pandas as pd
 
 socket.setdefaulttimeout(30)          # 任何网络请求最多卡 30 秒（akshare 部分接口没设超时）
 def _watchdog(minutes=40):

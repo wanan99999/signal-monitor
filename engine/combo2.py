@@ -34,7 +34,7 @@ class Rule:
             else:
                 c[k] = v
         self.c = c
-        self.raw_prev, self.state, self.pending, self.cnt = None, None, None, 0
+        self.state, self.pending, self.cnt = None, None, 0
         self.info = {}
 
     def idx(self, sym):

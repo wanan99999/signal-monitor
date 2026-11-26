@@ -8,7 +8,7 @@
   每天收盘后用腾讯行情追加一行；若腾讯「昨收」≠ 缓存里的昨日收盘，说明今天除权除息，
   把之前所有 FAC 乘上 昨日收盘 / 腾讯昨收，前复权价就自动对齐。
 """
-import os, re, time, json, pickle, warnings, datetime as dt
+import os, time, json, pickle, warnings, datetime as dt
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np, pandas as pd, requests
 
@@ -150,7 +150,7 @@ def _fetch_one(code):
             fac = np.where(i >= 0, fv[np.clip(i, 0, None)], fv[0])
         u["fac"] = fac / fac[-1]
         return code, u[["open", "high", "low", "close", "amount", "outstanding_share", "fac"]]
-    except Exception as e:
+    except Exception:
         return code, None
 
 

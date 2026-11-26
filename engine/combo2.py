@@ -14,6 +14,10 @@ from market import Book, er_ma_ok, er_value
 from strategies import Clock, Steady, pre, _prev, ETF_EXCLUDE
 
 STATES = {"normal": "平常", "small": "中小盘走强", "both": "中小盘走强 + 大盘上涨期"}
+# 三个位置：id（配置里用）、key（信号数据里的简写）、名称、什么时候用
+SLOTS = [dict(id="steady", key="a", name="稳健位", desc="市场没起色时用"),
+         dict(id="stock", key="s", name="个股位", desc="中小盘涨起来时用"),
+         dict(id="sector", key="b", name="板块位", desc="大盘也在上涨期时用")]
 INDEX_NAMES = {"sh000852": "中证1000", "sh000905": "中证500", "sz399006": "创业板指", "sz399303": "国证2000", "sh000300": "沪深300",
                "sh000016": "上证50", "sh000001": "上证指数"}
 
@@ -419,7 +423,7 @@ def meta():
     ps = [dict(id=pid, name=P.META["name"], slots=P.META["slots"], desc=P.META["desc"], rules=P.META["rules"],
                reselect_on_enter=P.reselect_on_enter, params=[dict(key=k, **v) for k, v in P.META["params"].items()])
           for pid, P in PLUGINS.items()]
-    return dict(plugins=ps, states=STATES, index_names=INDEX_NAMES, rule_default=Rule.DEFAULT, v14=V14)
+    return dict(plugins=ps, states=STATES, slots=SLOTS, index_names=INDEX_NAMES, rule_default=Rule.DEFAULT, v14=V14)
 
 
 def check(cfg):
@@ -518,7 +522,7 @@ def run(m, ctx, start, cfg):
     every = min(p.p.get("every", 5) for p in sl.values())
     return b, dict(conditions=cond, every=every, clock=ck, state=st, states=state_hist, sleeves=sl,
                    alloc={k: round(sum(v for sid, v in alloc.get(st, {}).items() if cfg["sleeves"][sid].get("slot") == slot), 4)
-                          for k, slot in (("a", "steady"), ("s", "stock"), ("b", "sector"))},
+                          for k, slot in ((x["key"], x["id"]) for x in SLOTS)},
                    etf_names=dict(ctx.etf_list), rule="可配置组合：" + cfg.get("name", ""))
 
 

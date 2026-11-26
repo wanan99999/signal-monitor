@@ -8,7 +8,9 @@
   var spct = function (x, d) { return x == null ? "—" : (x > 0 ? "+" : "") + (x * 100).toFixed(d == null ? 2 : d) + "%"; };
   var md = function (s) { return s ? +s.slice(5, 7) + "月" + +s.slice(8, 10) + "日" : ""; };
   var WEEK = "日一二三四五六";
-  var ALLOC = [["a", "稳健位", "#2a78d6"], ["s", "个股位", "#8a5cd1"], ["b", "板块位", "#c2871a"]];
+  // 三个位置：名称读引擎导出的 data/meta.json（load 里替换），这里只管颜色；meta 没读到时才用下面的名称
+  var COLOR = { a: "#2a78d6", s: "#8a5cd1", b: "#c2871a" };
+  var ALLOC = [["a", "稳健位", COLOR.a], ["s", "个股位", COLOR.s], ["b", "板块位", COLOR.b]];
   var isBuy = function (t) { return t.side === "买入" || t.side === "加仓"; };
   var isSell = function (t) { return t.side === "卖出" || t.side === "减仓"; };
   var DATA = null, SKEY = "sig-start", CUR = null;   // CUR：详情页当前加载的起点数据
@@ -39,8 +41,13 @@
 
   function load() {
     var src = (location.search.match(/[?&]src=([\w.-]+)/) || [])[1] || "signals.json";   // ?src= 仅用于本地测试
-    fetch("data/" + src + "?t=" + Date.now()).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (j) { DATA = j; route(); })
+    var meta = fetch("data/meta.json?t=" + Date.now()).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    var sig = fetch("data/" + src + "?t=" + Date.now()).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    Promise.all([sig, meta])
+      .then(function (x) {
+        if (x[1] && x[1].slots) ALLOC = x[1].slots.map(function (a) { return [a.key, a.name, COLOR[a.key] || "#888"]; });
+        DATA = x[0]; route();
+      })
       .catch(function () { $("view").innerHTML = '<p class="empty">数据加载失败，请稍后刷新。</p>'; });
   }
 

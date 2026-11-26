@@ -56,7 +56,7 @@
   function route() {
     if (!DATA) return;
     $("status").textContent = md(DATA.date) + " " + modeTxt() + " · 行情 " + DATA.quote_time;
-    var m = location.hash.match(/^#\/(\w+)(?:\/(buy|sell|hold))?/);
+    var m = location.hash.match(/^#\/([\w-]+)(?:\/(buy|sell|hold))?/);
     var s = m && DATA.strategies.filter(function (x) { return x.id === m[1]; })[0];
     if (!s) { $("view").innerHTML = home(); document.title = "策略信号"; return; }
     var sd = getStart(s), tab = m[2];

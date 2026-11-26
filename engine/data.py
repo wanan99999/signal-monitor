@@ -336,6 +336,50 @@ def fin_reports():
     return F
 
 
+def report_dates(years, name="report_dates.pkl"):
+    """年报实际披露日 {年份: Series[6 位代码 → 日期]}（东财「预约披露时间」ACTUAL_PUBLISH_DATE）。
+    业绩报表里的「最新公告日期」对往年会被后来的公告改写（全部晚于 5 月），回测判断「4/15 起年报未披露」必须用这个。
+    已结束很久的年份不再重抓；当年（1–5 月披露期）每天更新一次。"""
+    x = load(name, {})
+    now = bj_now()
+    for y in years:
+        fresh = y in x and (y < now.year - 1 or (y == now.year - 1 and now.month > 5) or age_days(name) < 1)
+        if fresh:
+            continue
+        URL = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+        rows, page = [], 1
+        try:
+            while True:
+                p = {"sortColumns": "SECURITY_CODE", "sortTypes": "1", "pageSize": "500", "pageNumber": str(page),
+                     "reportName": "RPT_PUBLIC_BS_APPOIN", "columns": "SECURITY_CODE,ACTUAL_PUBLISH_DATE",
+                     "filter": "(SECURITY_TYPE_CODE in (\"058001001\",\"058001008\"))(REPORT_DATE='%d-12-31')" % y}
+                j = retry(lambda: requests.get(URL, params=p, timeout=20).json())
+                r = j.get("result") or {}
+                rows += r.get("data") or []
+                if page >= (r.get("pages") or 1):
+                    break
+                page += 1
+            d = pd.DataFrame(rows)
+            if len(d):
+                x[y] = pd.to_datetime(d.set_index("SECURITY_CODE")["ACTUAL_PUBLISH_DATE"], errors="coerce")
+                save(name, x)
+        except Exception as e:
+            log("年报披露日 %d 获取失败：%s" % (y, str(e)[-80:]))
+    return x
+
+
+def fix_annual_pub(F, rd):
+    """用年报实际披露日替换业绩报表里年报的 pub（有实际日期的才换）"""
+    F = dict(F)
+    for p in list(F):
+        if p.endswith("1231") and int(p[:4]) in rd:
+            df = F[p].copy()
+            act = rd[int(p[:4])].reindex(df.index)
+            df["pub"] = act.fillna(df["pub"])
+            F[p] = df
+    return F
+
+
 def fin_asof(F, day):
     """day 当天已能看到的最新一期：返回 DataFrame[code]：np roe_a bps period"""
     day = pd.Timestamp(day)

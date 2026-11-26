@@ -86,6 +86,7 @@ def build_ctx():
     banks = D.load("sw_bank.pkl")
     bank_codes = [("sh" if c.startswith("6") else "sz") + c for c in banks]
     F = dict(bload("fin.pkl") or {}); F.update(D.load("fin.pkl") or {})
+    F = D.fix_annual_pub(F, D.report_dates(range(2022, today.year)))       # 往年年报的公告日被改写过，换成实际披露日
     elist = D.load("etf_list.pkl")
     (bc, ba), (lc, la) = bload("etf_hist.pkl"), D.load("etf_hist.pkl")
     ec = splice_scaled(bc, lc); ea = pd.concat([ba[ba.index < la.index[0]], la]).sort_index()

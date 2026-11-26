@@ -177,11 +177,22 @@ def history():
     return H
 
 
-def append_today(H, q, day):
-    """收盘后把今天的腾讯行情追加进缓存；处理除权（腾讯昨收 ≠ 缓存昨收）"""
+ADJ_MARK = "fac_adj.json"     # 记下当天已经做过的除权调整，同一天重跑时先撤销，避免重复累乘
+
+
+def append_today(H, q, day, mark=True):
+    """收盘后把今天的腾讯行情追加进缓存；处理除权（腾讯昨收 ≠ 缓存昨收）。同一天重复调用结果不变"""
     day = pd.Timestamp(day)
     if day in H["close"].index:
         H = {k: v.drop(day) for k, v in H.items()}
+        try:
+            m = json.load(open(os.path.join(CACHE, ADJ_MARK), encoding="utf-8"))
+        except Exception:
+            m = {}
+        if m.get("day") == day.strftime("%Y-%m-%d") and m.get("ratio"):
+            r = pd.Series(m["ratio"]).reindex(H["fac"].columns).dropna()
+            H["fac"].loc[:, r.index] = H["fac"][r.index].mul(r, axis=1)          # 撤销上次的调整
+            H["fac"] = H["fac"].div(H["fac"].iloc[-1].replace(0, 1), axis=1)
     last = H["close"].ffill().iloc[-1]
     q = q[q.price > 0]
     cols = H["close"].columns.union(q.index)
@@ -192,6 +203,9 @@ def append_today(H, q, day):
     if len(adj):
         H["fac"].loc[:, adj.index] = H["fac"][adj.index].mul(1 / adj, axis=1)       # 之前的前复权价 × 腾讯昨收/缓存昨收
         log("今日除权除息 %d 只，已调整复权因子" % len(adj))
+    if mark:
+        json.dump({"day": day.strftime("%Y-%m-%d"), "ratio": {k: float(v) for k, v in adj.items()}},
+                  open(os.path.join(CACHE, ADJ_MARK), "w", encoding="utf-8"))
     row = {"open": q["open"], "high": q["high"], "low": q["low"], "close": q["price"], "amount": q["amount"],
            "outstanding_share": (q["fcap"] / q["price"]).replace([np.inf], np.nan), "fac": pd.Series(1.0, q.index)}
     for k, v in row.items():
@@ -203,7 +217,7 @@ def append_today(H, q, day):
 
 def with_snapshot(H, q, day):
     """盘中：把实时价当作今天收盘拼到历史后面（不保存）"""
-    return append_today({k: v.copy() for k, v in H.items()}, q, day)
+    return append_today({k: v.copy() for k, v in H.items()}, q, day, mark=False)
 
 
 # ---------------- 指数 ----------------

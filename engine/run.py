@@ -197,6 +197,11 @@ def main():
     cl, cl_stale = cloud.combos()
     if cl_stale:
         warn.append("这次没连上云端，「我的组合策略」用的是上一次读到的配置")
+    else:
+        try:
+            cloud.write_list(cl, OUT)
+        except Exception as e:
+            D.log("写组合清单失败：%s" % e)
     for c in cl:
         bad = C2.check(c["config"])
         if bad:
